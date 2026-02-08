@@ -1,6 +1,6 @@
 program cgafun;
 
-uses crt; (* for readkey *)
+uses crt;
 
 procedure int10mode(mode: byte); assembler;
   asm
@@ -125,6 +125,7 @@ procedure createDiscSprite(var p: pointer; xofs: byte);
 var
   sprites : array [0..3] of pointer;
   i : word;
+  x, y, dx, dy : integer;
 
 begin
   for i := 0 to 3 do createDiscSprite(sprites[i], i);
@@ -133,14 +134,26 @@ begin
   port[$3D9] := 1 or 16 or 32; (* bright cool palette *)
   clear(1, 16);
 
-  for i := 0 to 19 do
-  begin
-    waitretrace;
-    blitSprite(sprites[i mod 4], i, i);
-    delay(100);
-  end;
+  x := 160 - 16;
+  y := 100 - 16;
+  dx := 1;
+  dy := 1;
 
-  readkey;
+  repeat
+    waitretrace;
+    blitSprite(sprites[x mod 4], x, y);
+
+    x := x + dx;
+    y := y + dy;
+
+    if x > (320 - 20) then begin dx := -dx; x := 320 - 20; end;
+    if x < 0 then begin dx := -dx; x := 0; end;
+    if y > (200 - 16) then begin dy := -dy; y := 200 - 16; end;
+    if y < 0 then begin dy := -dy; y := 0; end;
+
+    delay(10);
+  until port[$60] = 1; (* wait on esc = key code 0 *)
+
   for i := 0 to 3 do freeSprite(sprites[i]);
   int10mode(3); (* return to text-mode *)
 end.
