@@ -71,17 +71,20 @@ procedure blitSprite(var p: pointer; x0: word; y0: word);
     end;
   end;
 
+const
+  SPRITE_SIZE = 32;
+
 procedure createDiscSprite(var p: pointer; xofs: byte);
   const
     XBUF = 4;
-    W = 16 + XBUF;
-    H = 16;
+    W = SPRITE_SIZE + XBUF;
+    H = SPRITE_SIZE;
   const
     color = 2; (* : byte;*) (* lowest 2 bit *)
   var
     row, col : byte;
     cx, cy : byte;
-    xx, yy, rr : shortint;
+    xx, yy, rr : integer;
     b : byte;
     offset : word;
   begin
@@ -133,7 +136,8 @@ begin
 
   int10mode(4); (* mode 4 = 320x200 @ 4 colors *)
   port[$3D9] := 1 or 16 or 32; (* bright cool palette *)
-  clear(1, 16);
+
+  clear(0, 0);
 
   x := 160 - 16;
   y := 100 - 16;
@@ -143,17 +147,20 @@ begin
   repeat
     blitSprite(sprites[x mod 4], x, y);
 
-    delay(10);
+    {delay(10);}
 
-    waitretrace;
-    blitSprite(sprites[x mod 4], x, y);
+    if port[$60] <> 28 then (* enter = key code 28 *)
+    begin
+      waitretrace;
+      blitSprite(sprites[x mod 4], x, y);
+    end;
 
     x := x + dx;
     y := y + dy;
 
-    if x > (320 - 20) then begin dx := -dx; x := 320 - 20; end;
+    if x > (320 - SPRITE_SIZE - 4) then begin dx := -dx; x := 320 - SPRITE_SIZE - 4; end;
     if x < 0 then begin dx := -dx; x := 0; end;
-    if y > (200 - 16) then begin dy := -dy; y := 200 - 16; end;
+    if y > (200 - SPRITE_SIZE) then begin dy := -dy; y := 200 - SPRITE_SIZE; end;
     if y < 0 then begin dy := -dy; y := 0; end;
 
   until port[$60] = 1; (* wait on esc = key code 0 *)
