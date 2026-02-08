@@ -1,15 +1,22 @@
-program cga;
+program cgafun;
 
 uses crt; (* for readkey *)
 
-procedure int10mode(mode: byte);
-  begin
-    asm
+procedure int10mode(mode: byte); assembler;
+  asm
     mov ah, 0
     mov al, mode
     int 10h
-    end
   end;
+
+procedure waitretrace;
+  begin
+    (* bit 3 of status register indicates vertical retrace *)
+    (* wait for bit 3 to switch from 0 to 1 *)
+    repeat until (port[$3DA] and 8) = 0;
+    repeat until (port[$3DA] and 8) > 0;
+  end;
+
 
 procedure clear(evenRows: byte; oddRows: byte);
   var
@@ -17,7 +24,7 @@ procedure clear(evenRows: byte; oddRows: byte);
     offset : word;
   begin
     offset := 0;
-    for y := 0 to 99 do (* 200 rows / 2 "pages" = 100 rows per "page" *)
+    for y := 0 to 99 do (* 200 rows / 2 half-screen = 100 rows per half-screen *)
     begin
       for x := 0 to 79 do (* 320 pixel / 4 pixel/byte = 80 bytes *)
       begin
@@ -27,6 +34,7 @@ procedure clear(evenRows: byte; oddRows: byte);
       end
     end
   end;
+
 
 procedure freeSprite(var p: pointer);
   var
@@ -109,19 +117,17 @@ procedure createDiscSprite(var p: pointer; xofs: byte);
           inc(offset);
           b := 0;
         end
-      end
+      end;
     end
   end;
+
 
 var
   sprites : array [0..3] of pointer;
   i : word;
 
 begin
-  createDiscSprite(sprites[0], 0);
-  createDiscSprite(sprites[1], 1);
-  createDiscSprite(sprites[2], 2);
-  createDiscSprite(sprites[3], 3);
+  for i := 0 to 3 do createDiscSprite(sprites[i], i);
 
   int10mode(4); (* mode 4 = 320x200 @ 4 colors *)
   port[$3D9] := 1 or 16 or 32; (* bright cool palette *)
@@ -129,14 +135,12 @@ begin
 
   for i := 0 to 19 do
   begin
+    waitretrace;
     blitSprite(sprites[i mod 4], i, i);
     delay(100);
   end;
 
   readkey;
-  freeSprite(sprites[0]);
-  freeSprite(sprites[1]);
-  freeSprite(sprites[2]);
-  freeSprite(sprites[3]);
+  for i := 0 to 3 do freeSprite(sprites[i]);
   int10mode(3); (* return to text-mode *)
 end.
