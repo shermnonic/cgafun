@@ -48,7 +48,7 @@ procedure blitSprite(var p: pointer; x0: word; y0: word);
 
     stride := W shr 2;
 
-    dstofs := y0 * 80 + (x0 shr 2);
+    dstofs := (y0 shr 1) * 80 + (x0 shr 2);
     srcofs := ofs(p^) + 2;
 
     for row := 0 to (H-1) do
@@ -114,6 +114,7 @@ procedure createDiscSprite(var p: pointer);
 
 var
   sprite : pointer;
+  i : word;
 
 begin
   createDiscSprite(sprite);
@@ -122,7 +123,11 @@ begin
   port[$3D9] := 1 or 16 or 32; (* bright cool palette *)
   clear(1, 16);
 
-  blitSprite(sprite, 144, 48);
+  for i := 0 to 184 do
+  begin
+    blitSprite(sprite, i, i);
+    delay(30);
+  end;
 
   readkey;
   freeSprite(sprite);
