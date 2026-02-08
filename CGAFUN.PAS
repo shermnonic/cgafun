@@ -62,9 +62,10 @@ procedure blitSprite(var p: pointer; x0: word; y0: word);
     end;
   end;
 
-procedure createDiscSprite(var p: pointer);
+procedure createDiscSprite(var p: pointer; xofs: byte);
   const
-    W = 16;
+    XBUF = 4;
+    W = 16 + XBUF;
     H = 16;
   const
     color = 2; (* : byte;*) (* lowest 2 bit *)
@@ -80,10 +81,10 @@ procedure createDiscSprite(var p: pointer);
     mem[seg(p^):ofs(p^)+0] := W;
     mem[seg(p^):ofs(p^)+1] := H;
 
-    cx := W shr 1;
-    cy := H shr 1;
+    cx := (W - XBUF) shr 1 + xofs;
+    cy := H shr 1 ;
 
-    rr := cy * cy;
+    rr := cy * cy - cy;
 
     offset := ofs(p^) + 2;
 
@@ -113,23 +114,29 @@ procedure createDiscSprite(var p: pointer);
   end;
 
 var
-  sprite : pointer;
+  sprites : array [0..3] of pointer;
   i : word;
 
 begin
-  createDiscSprite(sprite);
+  createDiscSprite(sprites[0], 0);
+  createDiscSprite(sprites[1], 1);
+  createDiscSprite(sprites[2], 2);
+  createDiscSprite(sprites[3], 3);
 
   int10mode(4); (* mode 4 = 320x200 @ 4 colors *)
   port[$3D9] := 1 or 16 or 32; (* bright cool palette *)
   clear(1, 16);
 
-  for i := 0 to 184 do
+  for i := 0 to 19 do
   begin
-    blitSprite(sprite, i, i);
-    delay(30);
+    blitSprite(sprites[i mod 4], i, i);
+    delay(100);
   end;
 
   readkey;
-  freeSprite(sprite);
+  freeSprite(sprites[0]);
+  freeSprite(sprites[1]);
+  freeSprite(sprites[2]);
+  freeSprite(sprites[3]);
   int10mode(3); (* return to text-mode *)
 end.
