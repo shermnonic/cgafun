@@ -64,7 +64,8 @@ procedure blitSprite(var p: pointer; x0: word; y0: word);
       if (row mod 2) = 1 then pageofs := $2000 else pageofs := 0;
       for col := 0 to (stride - 1) do
         (* TODO: Handle non 4-aligned x0 positions *)
-        mem[$B800:dstofs+pageofs+col] := mem[seg(p^):srcofs+col];
+        {mem[$B800:dstofs+pageofs+col] := mem[seg(p^):srcofs+col];}
+        mem[$B800:dstofs+pageofs+col] := mem[$B800:dstofs+pageofs+col] xor mem[seg(p^):srcofs+col];
       if (row mod 2) = 1 then dstofs := dstofs + 80;
       srcofs := srcofs + stride;
     end;
@@ -140,6 +141,10 @@ begin
   dy := 1;
 
   repeat
+    blitSprite(sprites[x mod 4], x, y);
+
+    delay(10);
+
     waitretrace;
     blitSprite(sprites[x mod 4], x, y);
 
@@ -151,7 +156,6 @@ begin
     if y > (200 - 16) then begin dy := -dy; y := 200 - 16; end;
     if y < 0 then begin dy := -dy; y := 0; end;
 
-    delay(10);
   until port[$60] = 1; (* wait on esc = key code 0 *)
 
   for i := 0 to 3 do freeSprite(sprites[i]);
