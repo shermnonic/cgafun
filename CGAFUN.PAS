@@ -31,7 +31,7 @@ procedure clear(evenRows: byte; oddRows: byte);
         mem[$B800:offset] := evenRows;
         mem[$B800:(offset+$2000)] := oddRows;
         inc(offset)
-      end
+      end;
     end
   end;
 
@@ -45,7 +45,7 @@ procedure freeSprite(var p: pointer);
     freemem(p, 2 + (W shr 2) * H);
   end;
 
-procedure blitSprite(var p: pointer; x0: word; y0: word);
+procedure xorBlitSprite(var p: pointer; x0: word; y0: word);
   var
     W, H, stride : byte;
     row, col : word;
@@ -61,18 +61,25 @@ procedure blitSprite(var p: pointer; x0: word; y0: word);
 
     for row := 0 to (H-1) do
     begin
-      if (row mod 2) = 1 then pageofs := $2000 else pageofs := 0;
+      if ((y0+row) mod 2) = 1 then pageofs := $2000 else pageofs := 0;
       for col := 0 to (stride - 1) do
         (* TODO: Handle non 4-aligned x0 positions *)
         {mem[$B800:dstofs+pageofs+col] := mem[seg(p^):srcofs+col];}
         mem[$B800:dstofs+pageofs+col] := mem[$B800:dstofs+pageofs+col] xor mem[seg(p^):srcofs+col];
-      if (row mod 2) = 1 then dstofs := dstofs + 80;
+      if ((y0+row) mod 2) = 1 then dstofs := dstofs + 80;
       srcofs := srcofs + stride;
     end;
   end;
 
+
+function get4PixelColor(color: byte): byte;
+  begin
+    get4PixelColor := color or (color shl 2) or (color shl 4) or (color shl 6);
+  end;
+
+
 const
-  SPRITE_SIZE = 32;
+  SPRITE_SIZE = 24;
 
 procedure createDiscSprite(var p: pointer; xofs: byte);
   const
@@ -80,7 +87,7 @@ procedure createDiscSprite(var p: pointer; xofs: byte);
     W = SPRITE_SIZE + XBUF;
     H = SPRITE_SIZE;
   const
-    color = 2; (* : byte;*) (* lowest 2 bit *)
+    color = 1; (* : byte;*) (* lowest 2 bit *)
   var
     row, col : byte;
     cx, cy : byte;
@@ -125,7 +132,6 @@ procedure createDiscSprite(var p: pointer; xofs: byte);
     end
   end;
 
-
 var
   sprites : array [0..3] of pointer;
   i : word;
@@ -137,7 +143,7 @@ begin
   int10mode(4); (* mode 4 = 320x200 @ 4 colors *)
   port[$3D9] := 1 or 16 or 32; (* bright cool palette *)
 
-  clear(0, 0);
+  clear(0, get4PixelColor(2));
 
   x := 160 - 16;
   y := 100 - 16;
@@ -145,21 +151,21 @@ begin
   dy := 1;
 
   repeat
-    blitSprite(sprites[x mod 4], x, y);
+    xorBlitSprite(sprites[x mod 4], x, y);
 
     {delay(10);}
 
-    if port[$60] <> 28 then (* enter = key code 28 *)
+    if port[$60] = 28 then (* enter = key code 28 *)
     begin
       waitretrace;
-      blitSprite(sprites[x mod 4], x, y);
+      xorBlitSprite(sprites[x mod 4], x, y);
     end;
 
     x := x + dx;
     y := y + dy;
 
     if x > (320 - SPRITE_SIZE - 4) then begin dx := -dx; x := 320 - SPRITE_SIZE - 4; end;
-    if x < 0 then begin dx := -dx; x := 0; end;
+    if x < 4 then begin dx := -dx; x := 4; end;
     if y > (200 - SPRITE_SIZE) then begin dy := -dy; y := 200 - SPRITE_SIZE; end;
     if y < 0 then begin dy := -dy; y := 0; end;
 
