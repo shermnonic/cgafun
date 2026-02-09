@@ -35,6 +35,11 @@ procedure clear(evenRows: byte; oddRows: byte);
     end
   end;
 
+function get4PixelColor(color: byte): byte;
+  begin
+    get4PixelColor := color or (color shl 2) or (color shl 4) or (color shl 6);
+  end;
+
 
 procedure freeSprite(var p: pointer);
   var
@@ -47,34 +52,34 @@ procedure freeSprite(var p: pointer);
 
 procedure xorBlitSprite(var p: pointer; x0: word; y0: word);
   var
-    W, H, stride : byte;
+    W, H, src1line, src2lines : byte;
     row, col : word;
     dstofs, srcofs, pageofs : word;
+    part : byte;
   begin
     W := mem[seg(p^):ofs(p^)+0];
     H := mem[seg(p^):ofs(p^)+1];
 
-    stride := W shr 2;
+    src2lines := W shr 1;
+    src1line := src2lines shr 1; (* = W shr 2 *)
 
-    dstofs := (y0 shr 1) * 80 + (x0 shr 2);
-    srcofs := ofs(p^) + 2;
+    pageofs := $2000 * (y0 mod 2);
 
-    for row := 0 to (H-1) do
+    for part := 0 to 1 do
     begin
-      if ((y0+row) mod 2) = 1 then pageofs := $2000 else pageofs := 0;
-      for col := 0 to (stride - 1) do
-        (* TODO: Handle non 4-aligned x0 positions *)
-        {mem[$B800:dstofs+pageofs+col] := mem[seg(p^):srcofs+col];}
-        mem[$B800:dstofs+pageofs+col] := mem[$B800:dstofs+pageofs+col] xor mem[seg(p^):srcofs+col];
-      if ((y0+row) mod 2) = 1 then dstofs := dstofs + 80;
-      srcofs := srcofs + stride;
+      srcofs := (ofs(p^) + 2) + part * src1line;
+      dstofs := (y0 shr 1) * 80 + (x0 shr 2) + part * (y0 mod 2) * 80;
+
+      for row := 1 to (H shr 1) do
+      begin
+        for col := 0 to src1line - 1 do
+          mem[$B800:dstofs+pageofs+col] := mem[$B800:dstofs+pageofs+col] xor mem[seg(p^):srcofs+col];
+        dstofs := dstofs + 80;
+        srcofs := srcofs + src2lines;
+      end;
+
+      pageofs := pageofs xor $2000;
     end;
-  end;
-
-
-function get4PixelColor(color: byte): byte;
-  begin
-    get4PixelColor := color or (color shl 2) or (color shl 4) or (color shl 6);
   end;
 
 
