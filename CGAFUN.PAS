@@ -43,7 +43,7 @@ procedure freeSprite(var p: pointer);
     freemem(p, 2 + (W shr 2) * H);
   end;
 
-procedure xorBlitSprite(var p: pointer; x0: word; y0: word);
+procedure xorBlitSprite(var p: pointer; x0, y0: word);
   var
     W, H, src1line, src2lines : byte;
     row, col : word;
@@ -75,30 +75,27 @@ procedure xorBlitSprite(var p: pointer; x0: word; y0: word);
     end;
   end;
 
-
-const
-  SPRITE_SIZE = 24;
-
-procedure createDiscSprite(var p: pointer; xofs: byte);
+(* assume size is multiple of 4 *)
+procedure createDiscSprite(var p: pointer; size, color, xshift: byte);
   const
-    XBUF = 4;
-    W = SPRITE_SIZE + XBUF;
-    H = SPRITE_SIZE;
-  const
-    color = 1; (* : byte;*) (* lowest 2 bit *)
+    XPAD = 4;
   var
+    W, H : byte;
     row, col : byte;
     cx, cy : byte;
     xx, yy, rr : integer;
     b : byte;
     offset : word;
   begin
+    W := size + XPAD;
+    H := size;
+
     getmem(p, 2 + (W shr 2) * H);
 
     mem[seg(p^):ofs(p^)+0] := W;
     mem[seg(p^):ofs(p^)+1] := H;
 
-    cx := (W - XBUF) shr 1 + xofs;
+    cx := (W - XPAD) shr 1 + xshift;
     cy := H shr 1 ;
 
     rr := cy * cy - cy;
@@ -130,43 +127,94 @@ procedure createDiscSprite(var p: pointer; xofs: byte);
     end
   end;
 
+
+type
+  Ball = record
+    x, y, dx, dy : integer;
+    sprites : array [0..3] of pointer;
+    size : byte;
+  end;
+
+procedure createBall(var b: Ball; sprites: array of pointer; size: byte; x,y,dx,dy: integer);
+  var
+    i : byte;
+  begin
+    b.x := x;  b.y := y;  b.dx := dx;  b.dy := dy;
+    for i := 0 to 3 do b.sprites[i] := sprites[i];
+    b.size := size;
+  end;
+
+procedure moveBall(var b: Ball);
+  begin
+    with b do
+    begin
+      x := x + dx;
+      y := y + dy;
+
+      if x > (320 - size - 4) then begin dx := -dx; x := 320 - size - 4; end;
+      if x < 4 then begin dx := -dx; x := 4; end;
+      if y > (200 - size) then begin dy := -dy; y := 200 - size; end;
+      if y < 0 then begin dy := -dy; y := 0; end;
+    end
+  end;
+
+procedure drawBall(b: Ball);
+  begin
+    xorBlitSprite(b.sprites[b.x mod 4], b.x, b.y);
+  end;
+
+
+const
+  NUM_BALLS = 4;
+  SPRITE_SIZE = 32;
+
 var
+  balls : array [1..NUM_BALLS] of Ball;
   sprites : array [0..3] of pointer;
   i : word;
-  x, y, dx, dy : integer;
+  dx, dy : integer;
 
 begin
-  for i := 0 to 3 do createDiscSprite(sprites[i], i);
+  for i := 0 to 3 do createDiscSprite(sprites[i], SPRITE_SIZE, 1, i);
+
+  Randomize;
+  createBall(balls[1], sprites, SPRITE_SIZE, 160 - SPRITE_SIZE shr 1, 100 - SPRITE_SIZE shr 1, 1, 1);
+  if true then
+  begin
+    createBall(balls[2], sprites, SPRITE_SIZE, 160 - SPRITE_SIZE shr 1, 100 - SPRITE_SIZE shr 1, -1, 1);
+    createBall(balls[3], sprites, SPRITE_SIZE, 160 - SPRITE_SIZE shr 1, 100 - SPRITE_SIZE shr 1, -1, -1);
+    createBall(balls[4], sprites, SPRITE_SIZE, 160 - SPRITE_SIZE shr 1, 100 - SPRITE_SIZE shr 1, 1, -1);
+  end
+  else
+  begin
+    for i := 2 to NUM_BALLS do
+    begin
+      if random(2) = 0 then dx := -1 else dx := +1;
+      if random(2) = 0 then dy := -1 else dy := +1;
+      createBall(balls[i], sprites, SPRITE_SIZE,
+        random(320 - SPRITE_SIZE), random(200 - SPRITE_SIZE), dx, dy)
+    end;
+  end;
 
   int10mode(4); (* mode 4 = 320x200 @ 4 colors *)
-
   {port[$3D9] := 1 or 16 or 32; (* bright cool palette *)}
-
   clear(0, colorByte(2));
 
-  x := 160 - 16;
-  y := 100 - 16;
-  dx := 1;
-  dy := 1;
-
   repeat
-    xorBlitSprite(sprites[x mod 4], x, y);
+    for i := 1 to NUM_BALLS do
+      drawBall(balls[i]);
 
     {delay(10);}
 
     if port[$60] = 28 then (* enter = key code 28 *)
     begin
       waitretrace;
-      xorBlitSprite(sprites[x mod 4], x, y);
+      for i := 1 to NUM_BALLS do
+        drawBall(balls[i]);
     end;
 
-    x := x + dx;
-    y := y + dy;
-
-    if x > (320 - SPRITE_SIZE - 4) then begin dx := -dx; x := 320 - SPRITE_SIZE - 4; end;
-    if x < 4 then begin dx := -dx; x := 4; end;
-    if y > (200 - SPRITE_SIZE) then begin dy := -dy; y := 200 - SPRITE_SIZE; end;
-    if y < 0 then begin dy := -dy; y := 0; end;
+    for i := 1 to NUM_BALLS do
+      moveBall(balls[i]);
 
   until port[$60] = 1; (* wait on esc = key code 0 *)
 
