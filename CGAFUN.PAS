@@ -20,24 +20,17 @@ procedure waitretrace;
 
 procedure clear(evenRows: byte; oddRows: byte);
   var
-    x, y : word;
     offset : word;
   begin
-    offset := 0;
-    for y := 0 to 99 do (* 200 rows / 2 half-screen = 100 rows per half-screen *)
-    begin
-      for x := 0 to 79 do (* 320 pixel / 4 pixel/byte = 80 bytes *)
-      begin
-        mem[$B800:offset] := evenRows;
-        mem[$B800:(offset+$2000)] := oddRows;
-        inc(offset)
-      end;
-    end
+    (* 200 rows / 2 half-screen = 100 rows per half-screen *)
+    (* 320 pixel / 4 pixel/byte = 80 bytes *)
+    for offset := 0 to 100*80-1 do mem[$B800:offset] := evenRows;
+    for offset := 0 to 100*80-1 do mem[$B800:(offset+$2000)] := oddRows;
   end;
 
-function get4PixelColor(color: byte): byte;
+function colorByte(color: byte): byte;
   begin
-    get4PixelColor := color or (color shl 2) or (color shl 4) or (color shl 6);
+    colorByte := color or (color shl 2) or (color shl 4) or (color shl 6);
   end;
 
 
@@ -146,9 +139,10 @@ begin
   for i := 0 to 3 do createDiscSprite(sprites[i], i);
 
   int10mode(4); (* mode 4 = 320x200 @ 4 colors *)
-  port[$3D9] := 1 or 16 or 32; (* bright cool palette *)
 
-  clear(0, get4PixelColor(2));
+  {port[$3D9] := 1 or 16 or 32; (* bright cool palette *)}
+
+  clear(0, colorByte(2));
 
   x := 160 - 16;
   y := 100 - 16;
