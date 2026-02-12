@@ -20,6 +20,7 @@ procedure waitretrace;
 
 procedure palette(bright, cool: byte);
   begin
+    if cool > 1 then port[$3D8] := 14; (* 01110; bit 2 = overide with 3rd palette *)
     port[$3D9] := (bright shl 4) or (cool shl 5);
   end;
 
@@ -200,7 +201,7 @@ begin
   end;
 
   int10mode(4); (* mode 4 = 320x200 @ 4 colors *)
-  palette(0, 1);
+  palette(0, 2);
   clear(0, colorByte(2));
 
   repeat
