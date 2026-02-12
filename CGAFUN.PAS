@@ -18,6 +18,11 @@ procedure waitretrace;
   end;
 
 
+procedure palette(bright, cool: byte);
+  begin
+    port[$3D9] := (bright shl 4) or (cool shl 5);
+  end;
+
 procedure clear(evenRows: byte; oddRows: byte);
   var
     offset : word;
@@ -80,11 +85,8 @@ procedure createDiscSprite(var p: pointer; size, color, xshift: byte);
   const
     XPAD = 4;
   var
-    W, H : byte;
-    row, col : byte;
-    cx, cy : byte;
+    W, H, row, col, cx, cy, b : byte;
     xx, yy, rr : integer;
-    b : byte;
     offset : word;
   begin
     W := size + XPAD;
@@ -167,6 +169,7 @@ procedure drawBall(b: Ball);
 const
   NUM_BALLS = 4;
   SPRITE_SIZE = 32;
+  SYMMETRIC = true; (* requires NUM_BALLS = 4 *)
 
 var
   balls : array [1..NUM_BALLS] of Ball;
@@ -176,10 +179,9 @@ var
 
 begin
   for i := 0 to 3 do createDiscSprite(sprites[i], SPRITE_SIZE, 1, i);
-
-  Randomize;
+  (* First ball always at center *)
   createBall(balls[1], sprites, SPRITE_SIZE, 160 - SPRITE_SIZE shr 1, 100 - SPRITE_SIZE shr 1, 1, 1);
-  if true then
+  if SYMMETRIC then
   begin
     createBall(balls[2], sprites, SPRITE_SIZE, 160 - SPRITE_SIZE shr 1, 100 - SPRITE_SIZE shr 1, -1, 1);
     createBall(balls[3], sprites, SPRITE_SIZE, 160 - SPRITE_SIZE shr 1, 100 - SPRITE_SIZE shr 1, -1, -1);
@@ -187,6 +189,7 @@ begin
   end
   else
   begin
+    Randomize;
     for i := 2 to NUM_BALLS do
     begin
       if random(2) = 0 then dx := -1 else dx := +1;
@@ -197,7 +200,7 @@ begin
   end;
 
   int10mode(4); (* mode 4 = 320x200 @ 4 colors *)
-  {port[$3D9] := 1 or 16 or 32; (* bright cool palette *)}
+  palette(0, 1);
   clear(0, colorByte(2));
 
   repeat
