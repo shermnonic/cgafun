@@ -40,6 +40,14 @@ function colorByte(color: byte): byte;
   end;
 
 
+function allocSprite(var p: pointer; W, H: byte): word;
+  begin
+    getmem(p, 2 + (W shr 2) * H);
+    mem[seg(p^):ofs(p^)+0] := W;
+    mem[seg(p^):ofs(p^)+1] := H;
+    allocSprite := ofs(p^)+2;
+  end;
+
 procedure freeSprite(var p: pointer);
   var
     W, H : byte;
@@ -49,30 +57,38 @@ procedure freeSprite(var p: pointer);
     freemem(p, 2 + (W shr 2) * H);
   end;
 
+function getSpriteInfo(p: pointer; var W, H: byte): word;
+  begin
+    W := mem[seg(p^):ofs(p^)+0];
+    H := mem[seg(p^):ofs(p^)+1];
+    getSpriteInfo := ofs(p^)+2;
+  end;
+
+
 procedure xorBlitSprite(var p: pointer; x0, y0: word);
   var
     W, H, src1line, src2lines : byte;
     row, col : word;
-    dstofs, srcofs, pageofs : word;
+    spriteOfs, srcofs, dstofs, pageofs : word;
     part : byte;
   begin
-    W := mem[seg(p^):ofs(p^)+0];
-    H := mem[seg(p^):ofs(p^)+1];
+    spriteOfs := getSpriteInfo(p, W, H);
 
     src2lines := W shr 1;
-    src1line := src2lines shr 1; (* = W shr 2 *)
+    src1line := src2lines shr 1;
 
     pageofs := $2000 * (y0 mod 2);
 
     for part := 0 to 1 do
     begin
-      srcofs := (ofs(p^) + 2) + part * src1line;
+      srcofs := spriteOfs + part * src1line;
       dstofs := (y0 shr 1) * 80 + (x0 shr 2) + part * (y0 mod 2) * 80;
 
       for row := 1 to (H shr 1) do
       begin
         for col := 0 to src1line - 1 do
-          mem[$B800:dstofs+pageofs+col] := mem[$B800:dstofs+pageofs+col] xor mem[seg(p^):srcofs+col];
+          mem[$B800:dstofs+pageofs+col] := mem[$B800:dstofs+pageofs+col]
+                                           xor mem[seg(p^):srcofs+col];
         dstofs := dstofs + 80;
         srcofs := srcofs + src2lines;
       end;
@@ -86,35 +102,25 @@ procedure createDiscSprite(var p: pointer; size, color, xshift: byte);
   const
     XPAD = 4;
   var
-    W, H, row, col, cx, cy, b : byte;
+    row, col, cx, cy, b : byte;
     xx, yy, rr : integer;
     offset : word;
   begin
-    W := size + XPAD;
-    H := size;
+    offset := allocSprite(p, size + XPAD, size);
 
-    getmem(p, 2 + (W shr 2) * H);
-
-    mem[seg(p^):ofs(p^)+0] := W;
-    mem[seg(p^):ofs(p^)+1] := H;
-
-    cx := (W - XPAD) shr 1 + xshift;
-    cy := H shr 1 ;
+    cx := size shr 1 + xshift;
+    cy := size shr 1;
 
     rr := cy * cy - cy;
 
-    offset := ofs(p^) + 2;
-
     b := 0;
 
-    for row := 0 to (H-1) do
+    for row := 0 to (size-1) do
     begin
-      yy := row - cy;
-      yy := yy * yy;
-      for col := 0 to (W-1) do
+      yy := (row - cy) * (row - cy);
+      for col := 0 to (size+XPAD-1) do
       begin
-        xx := col - cx;
-        xx := xx * xx;
+        xx := (col - cx) * (col - cx);
         if xx + yy <= rr then
           (* Color pixel inside disc *)
           b := b or (color shl ((3 - (col mod 4)) shl 1));
